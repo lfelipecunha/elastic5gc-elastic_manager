@@ -1,0 +1,10 @@
+version: "3.5"
+services:
+    elastic_manager:
+        build: docker
+        env_file: docker/environment
+        volumes:
+            - ./src:/elastic_manager
+        command: python /elastic_manager/elastic_manager.py
+        labels:
+            - amf=1234
