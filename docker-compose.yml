@@ -4,7 +4,8 @@ services:
         build: docker
         env_file: docker/environment
         volumes:
-            - ./src:/elastic_manager
-        command: python /elastic_manager/elastic_manager.py
+            - ./src:/elastic_manager/src
+            - ./config:/elastic_manager/config
+        command: python /elastic_manager/src/elastic_manager.py
         labels:
             - amf=1234

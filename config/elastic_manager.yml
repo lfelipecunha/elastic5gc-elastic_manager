@@ -1,0 +1,9 @@
+docker_hosts:
+    -
+        ip_addr: 192.168.15.249
+        port: 2376
+        max_services: 1
+    -
+        ip_addr: 192.168.15.249
+        port: 2376
+        max_service: 1
