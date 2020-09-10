@@ -25,6 +25,10 @@ class ElasticManager:
         self.running_services = self.infra_manager.get_running_services()
         print('Running service:', self.running_services)
 
+        if self.minimal_services > self.running_services:
+            for i in range(self.running_services, self.minimal_services):
+                self.add_service()
+
 
     def start_new_monitoring(self):
         self.last_sequency = None
@@ -54,8 +58,8 @@ class ElasticManager:
                     total += float(entry['cpu_usage'])
                 serie.insert(0, total/seq['count'])
 
-            self.log('serie', serie)
-            self.log('Len', len(serie))
+            self.log('DEBUG','serie ' + str(serie))
+            self.log('DEBUG','Len ' + str(len(serie)))
 
             if len(serie) >= self.minimal_monitorings:
                 self.load_prediction(serie)
@@ -65,37 +69,43 @@ class ElasticManager:
         model = ARIMA(series, order=(1,0,0))
         res = model.fit()
         forecast = res.forecast(self.steps)
-        self.log('forecast', forecast[self.steps-1])
+        self.log('DEBUG', 'forecast ' + str(forecast[self.steps-1]))
         return self.elastic_action_evaluator(forecast[self.steps-1])
 
     def elastic_action_evaluator(self, total_cpu):
         action_taken = False
         if (total_cpu > self.upper):
-            self.add_service()
-            action_taken = True
+            action_taken = self.add_service()
         elif (total_cpu < self.lower):
-            self.remove_service()
-            action_taken = True
+            action_taken = self.remove_service()
 
         if action_taken:
             self.start_new_monitoring()
 
     def add_service(self):
-        self.log('Adding Service', None)
-        # @TODO create communication with services manager
+        self.log('INFO', 'Adding Service')
+        added = False
         if self.infra_manager.add_service():
             self.running_services += 1
+            added=True
         else:
             self.log('ERROR', 'Cannot add service')
 
+        return added
+
     def remove_service(self):
-        self.log('Removind Service', None)
-        # @TODO create communication with services manager
+        removed = False
+        self.log('INFO','Removind Service')
         if (self.running_services > self.minimal_services):
             if self.infra_manager.remove_service():
                 self.running_services -= 1
+                removed = True
             else:
                 self.log('ERROR', 'Cannot remove service')
+        else:
+            self.log('INFO', 'Not removed! Minimal of '+str(self.minimal_services)+' services.')
+
+        return removed
 
     def log(self, label, value):
         print('[' + str(int(time.time())) + '][' + label + '] - ' + str(value), flush=True)
@@ -104,10 +114,12 @@ class ElasticManager:
 if __name__ == "__main__":
     yml_file = open(os.path.abspath(os.path.join(os.path.abspath(__file__), '../../config/elastic_manager.yml')))
     config = yaml.load(yml_file, Loader=yaml.CLoader)
+    service_config = config.get('service_config', {})
     docker_hosts = []
-    for host in config.get('docker_hosts', []):
-        docker_host = DockerHost(host.get('ip_addr'), host.get('port'), host.get('max_services'))
+    for host_config in config.get('docker_hosts', []):
+        docker_host = DockerHost(host_config, service_config)
         docker_hosts.append(docker_host)
+
     docker_manager = DockerManager(docker_hosts)
     em = ElasticManager(docker_manager)
     em.initialize()

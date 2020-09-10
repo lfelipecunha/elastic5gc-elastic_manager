@@ -5,6 +5,8 @@ from infrastructure_manager import InfrastructureManagerStrategy
 
 class DockerCommunicationHandler:
     def __init__ (self, host, port):
+        self.host = host
+        self.port = port
         self.client = docker.DockerClient(base_url='http://'+host+':'+str(port))
 
     def get_containers(self, container_filter=[]):
@@ -14,26 +16,43 @@ class DockerCommunicationHandler:
         kwargs['detach'] = True
         return self.client.containers.run(image_name, command, **kwargs)
 
-# Property class
 class DockerHost:
-    def __init__(self, host, port, max_services):
-        self.host = host
-        self.port = port
-        self.max_services = max_services
-        self.docker_handler = DockerCommunicationHandler(host, port)
+    def __init__(self, host_config:dict, service_config:dict):
+        self.parse_configs(host_config, service_config)
+        self.docker_handler = DockerCommunicationHandler(self.host, self.port)
         self.running_services = []
+
+    def parse_configs(self, host_config, service_config):
+        self.set_param('max_services', host_config)
+        self.set_param('host', host_config)
+        self.set_param('port', host_config)
+        self.set_param('container_config', host_config, False)
+        self.set_param('service_label', service_config, False, 'amf')
+        self.set_param('nrf_ip', service_config)
+        self.set_param('image_name', service_config)
+
+    def set_param(self, param, config, required=True, default=None):
+        setattr(self, param, config.get(param, default))
+        if required and getattr(self, param) == None:
+            raise Exception('DockerCommunicationHandler', 'configuration \''+ param +'\' not found!')
 
     def get_amount_running_services(self):
         return len(self.running_services)
 
     def get_running_services(self):
-        container_filter = {'label': 'amf'}
+        container_filter = {'label': self.service_label}
         self.running_services = self.docker_handler.get_containers(container_filter)
 
         return self.get_amount_running_services()
 
     def add_service(self, service_id):
-        container = self.docker_handler.create_container('free5gc-compose_free5gc-amf', './amf -amfgcf ../config/amfcfg.conf', environment=['AMF_NAME=AMF'+str(service_id), 'NRF_IP=10.100.200.40'], labels={'amf': str(service_id)})
+        configs = {}
+        if self.container_config != None:
+            configs = self.container_config
+        configs['environment'] = ['AMF_NAME=AMF'+str(service_id), 'NRF_IP='+str(self.nrf_ip)]
+        configs['labels'] = {self.service_label: str(service_id)}
+
+        container = self.docker_handler.create_container(self.image_name, './amf -amfgcf ../config/amfcfg.conf', **configs)
         print(container)
         self.running_services.append(container)
 

@@ -7,5 +7,3 @@ services:
             - ./src:/elastic_manager/src
             - ./config:/elastic_manager/config
         command: python /elastic_manager/src/elastic_manager.py
-        labels:
-            - amf=1234
