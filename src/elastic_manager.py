@@ -4,19 +4,20 @@ import http.client
 import json
 from statsmodels.tsa.arima.model import ARIMA
 import yaml
+import argparse
 
 from infrastructure_manager import InfrastructureManagerStrategy
 from docker_manager import DockerHost, DockerManager
 
 class ElasticManager:
 
-    def __init__(self, infra_manager:InfrastructureManagerStrategy):
+    def __init__(self, infra_manager:InfrastructureManagerStrategy, monitor_config):
         self.upper = 70
         self.lower = 30
         self.minimal_monitorings = 10
         self.minimal_services = 1
         self.running_services = 0
-        self.monitor_interval = int(os.environ['MONITOR_INTERVAL'])
+        self.monitor_config = monitor_config
         self.steps = 10
         self.infra_manager = infra_manager
         self.last_sequency = None
@@ -38,7 +39,7 @@ class ElasticManager:
 
     def get_entries(self, quantity, initial_sequency=None):
 
-        conn = http.client.HTTPConnection(os.environ['MONITOR_HOST'], os.environ['MONITOR_PORT'])
+        conn = http.client.HTTPConnection(self.monitor_config['host'], self.monitor_config['port'])
         path = '/entries/'+str(quantity)
         if initial_sequency != None:
             path += '?initial_sequency=' + initial_sequency
@@ -63,7 +64,7 @@ class ElasticManager:
 
             if len(serie) >= self.minimal_monitorings:
                 self.load_prediction(serie)
-            time.sleep(self.monitor_interval)
+            time.sleep(self.monitor_config['interval'])
 
     def load_prediction(self, series):
         model = ARIMA(series, order=(1,0,0))
@@ -112,8 +113,13 @@ class ElasticManager:
 
 
 if __name__ == "__main__":
-    yml_file = open(os.path.abspath(os.path.join(os.path.abspath(__file__), '../../config/elastic_manager.yml')))
+    parser = argparse.ArgumentParser(description='Elastic Manager')
+    parser.add_argument('--config', help="Configuration File")
+    args = parser.parse_args()
+
+    yml_file = open(os.path.abspath(os.path.join(os.path.abspath(__file__), '..', args.config)))
     config = yaml.load(yml_file, Loader=yaml.CLoader)
+
     service_config = config.get('service_config', {})
     docker_hosts = []
     for host_config in config.get('docker_hosts', []):
@@ -121,7 +127,7 @@ if __name__ == "__main__":
         docker_hosts.append(docker_host)
 
     docker_manager = DockerManager(docker_hosts)
-    em = ElasticManager(docker_manager)
+    em = ElasticManager(docker_manager, config.get('monitor', {'host': 'localhost', 'port': 5000, 'interval': 2}))
     em.initialize()
     em.collect_and_sumarize()
 

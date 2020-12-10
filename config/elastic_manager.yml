@@ -1,3 +1,7 @@
+monitor:
+    interval: 2
+    host: "192.168.15.249"
+    port: 5000
 service_config:
     nrf_ip: 10.100.200.40
     service_label: 'amf'
