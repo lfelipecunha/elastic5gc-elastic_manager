@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 
 ADD src .
 
-VOLUME [ "/elastic_mananger/config" ]
+VOLUME [ "/elastic_manager/config" ]

@@ -1,19 +1,24 @@
+manager:
+    thresholds:
+        upper: 70 # minimal load to add resource
+        lower: 30 # max load to remove resource
+    minimal_monitorings: 10 # minimal monitorings to predict load
+    lookahead: 10 # steps ahead to predict load
+logger:
+    level: "DEBUG" #CRITICAL; ERROR; WARNING; INFO; DEBUG; NOTSET
+    #filename: manager.log
 monitor:
     interval: 2
     host: "192.168.15.249"
     port: 5000
 service_config:
-    nrf_ip: 10.100.200.40
+    nrf_ip: nrf.free5gc.org
+    amf_url: amf{{AMFID}}.free5gc.org # {{AMFID}} will be replaced by id of amf instance
     service_label: 'amf'
-    image_name: 'free5gc-compose_free5gc-amf'
+    image_name: 'amf'
 docker_hosts:
     -
-        host: 192.168.15.249
+        host: localhost
         port: 2376
         max_services: 1
-        container_config:
-            network: free5gc-compose_privnet
-    -
-        host: 192.168.15.249
-        port: 2375
-        max_services: 1
+        command: './amf -amfgcf ../config/amfcfg.conf'

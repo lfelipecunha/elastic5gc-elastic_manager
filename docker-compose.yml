@@ -2,7 +2,6 @@ version: "3.5"
 services:
     elastic_manager:
         build: .
-        env_file: docker/environment
         volumes:
             - ./config/elastic_manager.yml:/elastic_manager/config/elastic_manager.yml
         command: python /elastic_manager/elastic_manager.py --config config/elastic_manager.yml
