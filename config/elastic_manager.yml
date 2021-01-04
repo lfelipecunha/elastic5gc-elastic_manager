@@ -21,4 +21,4 @@ docker_hosts:
         host: localhost
         port: 2376
         max_services: 1
-        command: './amf -amfgcf ../config/amfcfg.conf'
+        network: free5gc-compose_privnet

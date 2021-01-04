@@ -20,6 +20,11 @@ class DockerCommunicationHandler:
         kwargs['detach'] = True
         return self.client.containers.run(image_name, command, **kwargs)
 
+    def connect_network(self, container, net_name, alias):
+        networks = self.client.networks.list(names=[net_name])
+        networks[0].connect(container, aliases=[alias])
+
+
 class DockerHost:
     host = ''
     port = 0
@@ -27,15 +32,16 @@ class DockerHost:
     nrf_ip = ''
     image_name =  ''
     container_config = {}
-    command = ''
+    command = None
     amf_url = ''
+    network = ''
 
     def __init__(self, host_config:dict, service_config:dict):
         self.logger = _get_logger()
         self.parse_configs(host_config, service_config)
         self.docker_handler = DockerCommunicationHandler(self.host, self.port)
         self.running_services = []
-        
+
 
     def parse_configs(self, host_config, service_config):
         self.set_param('max_services', host_config)
@@ -46,7 +52,8 @@ class DockerHost:
         self.set_param('nrf_ip', service_config)
         self.set_param('amf_url', service_config)
         self.set_param('image_name', service_config)
-        self.set_param('command', host_config)
+        self.set_param('command', host_config, False, None)
+        self.set_param('network', host_config)
 
     def set_param(self, param, config, required=True, default=None):
         setattr(self, param, config.get(param, default))
@@ -68,13 +75,13 @@ class DockerHost:
         if self.container_config != None:
             configs = self.container_config
 
-        amf_url = self.amf_url.replace("{{AMFID}}", service_id)
+        amf_url = self.amf_url.replace("{{AMFID}}", str(service_id))
         self.logger.debug("AMF URL %s", amf_url)
         configs['environment'] = ["AMF_IP="+amf_url, 'NRF_URI='+str(self.nrf_ip)]
         configs['labels'] = {self.service_label: str(service_id)}
-        configs['alias'] = amf_url
 
         container = self.docker_handler.create_container(self.image_name, self.command, **configs)
+        self.docker_handler.connect_network(container, self.network, amf_url)
         self.logger.debug('Added container: %s', container)
         self.running_services.append(container)
 
